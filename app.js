@@ -74,17 +74,31 @@ function cerrarSesion() {
 }
 
 // 4. CONTROL DE CÁMARA Y SUBIDA
-async function abrirCamara() {
-    cameraModal.classList.remove('hidden');
+let camaraActual = 'user'; // 'user' = frontal, 'environment' = trasera
+
+async function iniciarStream() {
+    if (streamActual) {
+        streamActual.getTracks().forEach(track => track.stop());
+    }
     try {
-        streamActual = await navigator.mediaDevices.getUserMedia({ 
-            video: { facingMode: 'user' } 
+        streamActual = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: camaraActual }
         });
         video.srcObject = streamActual;
     } catch (error) {
         alert("No se pudo acceder a la cámara.");
         console.error(error);
     }
+}
+
+async function abrirCamara() {
+    cameraModal.classList.remove('hidden');
+    await iniciarStream();
+}
+
+async function voltearCamara() {
+    camaraActual = camaraActual === 'user' ? 'environment' : 'user';
+    await iniciarStream();
 }
 
 function cerrarCamara() {
