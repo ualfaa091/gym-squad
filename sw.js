@@ -5,8 +5,8 @@ const APP_SHELL = [
   'app.js',
   'style.css',
   'manifest.json',
-  'icons/icon-192.png',
-  'icons/icon-512.png'
+  'icon-192.png',
+  'icon-512.png'
 ];
 
 // Se instala y guarda en caché los archivos básicos de la app (no las fotos ni las llamadas a Supabase)
