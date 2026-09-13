@@ -154,45 +154,131 @@ async function tomarFoto() {
     }, 'image/jpeg', 0.8);
 }
 
-// 5. CARGAR EL FEED DE FOTOS
-async function cargarFeed() {
-    const feedDiv = document.getElementById('feed-entrenamientos');
-    feedDiv.innerHTML = "<p>Cargando los fichajes de hoy...</p>";
+// 5. LISTA DE INTEGRANTES Y CUADRÍCULAS
+let todosLosPerfiles = [];
+let fechaStatsActual = new Date();
 
-    const hoy = new Date().toISOString().split('T')[0];
+async function cargarPerfiles() {
+    const { data, error } = await sb.from('perfiles').select('id, nombre').order('nombre');
+    if (!error) todosLosPerfiles = data;
+}
 
+function rangoDelDia(fecha) {
+    const inicio = new Date(fecha);
+    inicio.setHours(0, 0, 0, 0);
+    const fin = new Date(fecha);
+    fin.setHours(23, 59, 59, 999);
+    return { inicio: inicio.toISOString(), fin: fin.toISOString() };
+}
+
+async function cargarAsistenciasDeFecha(fecha) {
+    const { inicio, fin } = rangoDelDia(fecha);
     const { data, error } = await sb
         .from('asistencias')
-        .select(`
-            foto_url,
-            creado_en,
-            perfiles ( nombre )
-        `)
-        .gte('creado_en', `${hoy}T00:00:00Z`)
-        .order('creado_en', { ascending: false });
+        .select('perfil_id, foto_url')
+        .gte('creado_en', inicio)
+        .lte('creado_en', fin);
 
     if (error) {
-        feedDiv.innerHTML = "<p>Error al cargar las fotos.</p>";
+        console.error(error);
+        return {};
+    }
+
+    const mapa = {};
+    data.forEach(a => { mapa[a.perfil_id] = a.foto_url; });
+    return mapa;
+}
+
+function pintarGrid(contenedor, mapaAsistencias) {
+    contenedor.innerHTML = "";
+    if (todosLosPerfiles.length === 0) {
+        contenedor.innerHTML = "<p>Todavía no hay nadie en el grupo.</p>";
+        return;
+    }
+    todosLosPerfiles.forEach(perfil => {
+        const foto = mapaAsistencias[perfil.id];
+        const casilla = document.createElement('div');
+        casilla.className = 'casilla' + (foto ? ' hecho' : '');
+        if (foto) {
+            casilla.innerHTML = `<img src="${foto}" alt="${perfil.nombre}">`;
+            casilla.onclick = () => abrirLightbox(foto);
+        } else {
+            casilla.innerHTML = `<span class="nombre-casilla">${perfil.nombre}</span>`;
+        }
+        contenedor.appendChild(casilla);
+    });
+}
+
+async function cargarFeed() {
+    await cargarPerfiles();
+    const mapaHoy = await cargarAsistenciasDeFecha(new Date());
+    pintarGrid(document.getElementById('grid-hoy'), mapaHoy);
+}
+
+// 6. LIGHTBOX (ver foto en grande)
+function abrirLightbox(url) {
+    document.getElementById('lightbox-img').src = url;
+    document.getElementById('lightbox').classList.remove('hidden');
+}
+
+function cerrarLightbox() {
+    document.getElementById('lightbox').classList.add('hidden');
+}
+
+// 7. PANTALLA DE ESTADÍSTICAS
+async function abrirEstadisticas() {
+    mainScreen.classList.add('hidden');
+    document.getElementById('stats-screen').classList.remove('hidden');
+    fechaStatsActual = new Date();
+    await pintarStatsFecha();
+    await pintarRanking();
+}
+
+function cerrarEstadisticas() {
+    document.getElementById('stats-screen').classList.add('hidden');
+    mainScreen.classList.remove('hidden');
+}
+
+async function cambiarDiaStats(delta) {
+    fechaStatsActual.setDate(fechaStatsActual.getDate() + delta);
+    await pintarStatsFecha();
+}
+
+async function pintarStatsFecha() {
+    const label = document.getElementById('stats-fecha-label');
+    const hoy = new Date();
+    const esHoy = fechaStatsActual.toDateString() === hoy.toDateString();
+    label.textContent = esHoy
+        ? 'Hoy'
+        : fechaStatsActual.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' });
+
+    const mapa = await cargarAsistenciasDeFecha(fechaStatsActual);
+    pintarGrid(document.getElementById('grid-stats'), mapa);
+}
+
+async function pintarRanking() {
+    const contenedor = document.getElementById('ranking-lista');
+    contenedor.innerHTML = "<p>Cargando...</p>";
+
+    const { data, error } = await sb.from('asistencias').select('perfil_id');
+    if (error) {
+        contenedor.innerHTML = "<p>Error al cargar el ranking.</p>";
         console.error(error);
         return;
     }
 
-    if (data.length === 0) {
-        feedDiv.innerHTML = "<p>Nadie ha ido al gym hoy todavía. ¡Sé el primero! 🫵</p>";
-        return;
-    }
+    const conteo = {};
+    data.forEach(a => { conteo[a.perfil_id] = (conteo[a.perfil_id] || 0) + 1; });
 
-    feedDiv.innerHTML = ""; 
-    data.forEach(asistencia => {
-        const hora = new Date(asistencia.creado_en).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-        const nombreAmigo = asistencia.perfiles.nombre;
+    const ranking = todosLosPerfiles
+        .map(p => ({ nombre: p.nombre, total: conteo[p.id] || 0 }))
+        .sort((a, b) => b.total - a.total);
 
-        const tarjeta = document.createElement('div');
-        tarjeta.className = 'tarjeta-foto';
-        tarjeta.innerHTML = `
-            <p style="margin-bottom: 5px;"><strong>${nombreAmigo}</strong> 💪 fichó a las ${hora}</p>
-            <img src="${asistencia.foto_url}" alt="Foto del gym">
-        `;
-        feedDiv.appendChild(tarjeta);
+    contenedor.innerHTML = "";
+    ranking.forEach(r => {
+        const fila = document.createElement('div');
+        fila.className = 'ranking-fila';
+        fila.innerHTML = `<span>${r.nombre}</span><span>${r.total} ${r.total === 1 ? 'día' : 'días'}</span>`;
+        contenedor.appendChild(fila);
     });
 }

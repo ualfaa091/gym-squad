@@ -100,3 +100,111 @@ button.btn-small {
     width: 100%;
     border-radius: 8px;
 }
+
+/* Cabecera con varios botones */
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    margin-bottom: 15px;
+}
+header h2 { margin-bottom: 0; }
+.header-btns {
+    display: flex;
+    gap: 8px;
+}
+.header-btns button {
+    width: auto;
+    margin-bottom: 0;
+}
+.btn-stats {
+    background-color: #333;
+}
+
+/* Cuadrícula de fichajes */
+.grid-fichajes {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: 10px;
+    width: 100%;
+    margin-bottom: 90px;
+}
+.casilla {
+    aspect-ratio: 1 / 1;
+    border-radius: 12px;
+    background-color: #2a2a2a;
+    border: 2px solid #3a3a3a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+}
+.casilla.hecho {
+    border-color: #4CAF50;
+    cursor: pointer;
+}
+.casilla img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.nombre-casilla {
+    font-size: 11px;
+    text-align: center;
+    padding: 4px;
+    color: #888;
+    word-break: break-word;
+}
+
+/* Navegación de días en Estadísticas */
+.date-nav {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    margin-bottom: 15px;
+    width: 100%;
+}
+.date-nav button {
+    width: 40px;
+    margin-bottom: 0;
+}
+#stats-fecha-label {
+    font-weight: bold;
+    min-width: 120px;
+    text-align: center;
+    text-transform: capitalize;
+}
+
+.titulo-ranking {
+    width: 100%;
+    margin-top: 10px;
+    margin-bottom: 10px;
+}
+.ranking-fila {
+    display: flex;
+    justify-content: space-between;
+    background: #2a2a2a;
+    padding: 10px 15px;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    width: 100%;
+}
+
+/* Lightbox: ver foto en grande */
+#lightbox {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+}
+#lightbox img {
+    max-width: 90%;
+    max-height: 90%;
+    border-radius: 10px;
+}

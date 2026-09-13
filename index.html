@@ -30,10 +30,34 @@
     <div id="main-screen" class="screen hidden">
         <header>
             <h2>El grupo de hoy</h2>
-            <button onclick="cerrarSesion()" class="btn-small">Salir</button>
+            <div class="header-btns">
+                <button onclick="abrirEstadisticas()" class="btn-small btn-stats">📊 Stats</button>
+                <button onclick="cerrarSesion()" class="btn-small">Salir</button>
+            </div>
         </header>
-        <div id="feed-entrenamientos" class="feed"></div>
+        <div id="grid-hoy" class="grid-fichajes"></div>
         <button id="btn-fichar" onclick="abrirCamara()">📸 Fichar hoy</button>
+    </div>
+
+    <div id="stats-screen" class="screen hidden">
+        <header>
+            <h2>Estadísticas</h2>
+            <button onclick="cerrarEstadisticas()" class="btn-small">← Volver</button>
+        </header>
+
+        <div class="date-nav">
+            <button onclick="cambiarDiaStats(-1)">‹</button>
+            <span id="stats-fecha-label"></span>
+            <button onclick="cambiarDiaStats(1)">›</button>
+        </div>
+        <div id="grid-stats" class="grid-fichajes"></div>
+
+        <h3 class="titulo-ranking">Ranking total</h3>
+        <div id="ranking-lista"></div>
+    </div>
+
+    <div id="lightbox" class="hidden" onclick="cerrarLightbox()">
+        <img id="lightbox-img" src="" alt="Foto ampliada">
     </div>
 
     <div id="camera-modal" class="hidden">
