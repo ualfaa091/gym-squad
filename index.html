@@ -13,8 +13,9 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Gym Squad">
     <link rel="stylesheet" href="style.css">
-    <!-- Solo cargamos Supabase aquí -->
+    <!-- Librerías externas -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <div id="login-screen" class="screen">
@@ -27,38 +28,61 @@
         <button onclick="registrarUsuario()" class="btn-small">Crear cuenta nueva</button>
     </div>
 
-    <div id="main-screen" class="screen hidden">
+    <!-- PESTAÑA: HOY -->
+    <div id="main-screen" class="screen tab-content hidden">
         <header>
             <h2>El grupo de hoy</h2>
-            <div class="header-btns">
-                <button onclick="abrirEstadisticas()" class="btn-small btn-stats">📊 Stats</button>
-                <button onclick="cerrarSesion()" class="btn-small">Salir</button>
-            </div>
+            <button onclick="cerrarSesion()" class="btn-small">Salir</button>
         </header>
         <div id="grid-hoy" class="grid-fichajes"></div>
         <button id="btn-fichar" onclick="abrirCamara()">📸 Fichar hoy</button>
     </div>
 
-    <div id="stats-screen" class="screen hidden">
-        <header>
-            <h2>Estadísticas</h2>
-            <button onclick="cerrarEstadisticas()" class="btn-small">← Volver</button>
-        </header>
-
+    <!-- PESTAÑA: DÍAS (cuadrícula de fotos de un día concreto) -->
+    <div id="days-screen" class="screen tab-content hidden">
+        <header><h2>Días</h2></header>
         <div class="date-nav">
-            <button onclick="cambiarDiaStats(-1)">‹</button>
-            <span id="stats-fecha-label"></span>
-            <button onclick="cambiarDiaStats(1)">›</button>
+            <button onclick="cambiarDia(-1)">‹</button>
+            <span id="dias-fecha-label"></span>
+            <button onclick="cambiarDia(1)">›</button>
         </div>
-        <div id="grid-stats" class="grid-fichajes"></div>
+        <div id="grid-dias" class="grid-fichajes"></div>
+    </div>
 
-        <h3 class="titulo-ranking">Ranking total</h3>
+    <!-- PESTAÑA: CALENDARIO (por persona) -->
+    <div id="calendar-screen" class="screen tab-content hidden">
+        <header><h2>Calendario</h2></header>
+        <div id="selector-personas" class="chips"></div>
+        <div class="date-nav">
+            <button onclick="cambiarMesCalendario(-1)">‹</button>
+            <span id="calendario-mes-label"></span>
+            <button onclick="cambiarMesCalendario(1)">›</button>
+        </div>
+        <div id="calendario-grid" class="calendario-grid"></div>
+    </div>
+
+    <!-- PESTAÑA: ESTADÍSTICAS (gráfico + ranking mensual) -->
+    <div id="stats-screen" class="screen tab-content hidden">
+        <header><h2>Estadísticas</h2></header>
+        <div class="date-nav">
+            <button onclick="cambiarMesStats(-1)">‹</button>
+            <span id="stats-mes-label"></span>
+            <button onclick="cambiarMesStats(1)">›</button>
+        </div>
+        <div class="grafico-wrap">
+            <canvas id="grafico-stats"></canvas>
+        </div>
+        <h3 class="titulo-ranking">Ranking del mes</h3>
         <div id="ranking-lista"></div>
     </div>
 
-    <div id="lightbox" class="hidden" onclick="cerrarLightbox()">
-        <img id="lightbox-img" src="" alt="Foto ampliada">
-    </div>
+    <!-- BARRA DE NAVEGACIÓN INFERIOR -->
+    <nav id="bottom-nav" class="hidden">
+        <button data-tab="main" onclick="cambiarPestana('main')"><span class="icono">🏠</span>Hoy</button>
+        <button data-tab="days" onclick="cambiarPestana('days')"><span class="icono">🗓️</span>Días</button>
+        <button data-tab="calendar" onclick="cambiarPestana('calendar')"><span class="icono">📅</span>Calendario</button>
+        <button data-tab="stats" onclick="cambiarPestana('stats')"><span class="icono">📊</span>Stats</button>
+    </nav>
 
     <div id="camera-modal" class="hidden">
         <video id="video-camara" autoplay playsinline></video>
@@ -66,6 +90,10 @@
         <button id="btn-voltear" onclick="voltearCamara()">🔄 Voltear cámara</button>
         <button id="btn-cerrar-camara" onclick="cerrarCamara()">Cancelar</button>
         <canvas id="canvas-foto" class="hidden"></canvas>
+    </div>
+
+    <div id="lightbox" class="hidden" onclick="cerrarLightbox()">
+        <img id="lightbox-img" src="" alt="Foto ampliada">
     </div>
 
     <!-- Solo cargamos tu código aquí -->

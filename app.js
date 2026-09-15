@@ -6,10 +6,12 @@ var sb = window.supabase.createClient(supabaseUrl, supabaseKey);
 // 2. VARIABLES DE LA INTERFAZ
 const loginScreen = document.getElementById('login-screen');
 const mainScreen = document.getElementById('main-screen');
+const bottomNav = document.getElementById('bottom-nav');
 const cameraModal = document.getElementById('camera-modal');
 const video = document.getElementById('video-camara');
 const canvas = document.getElementById('canvas-foto');
 let streamActual = null;
+let miPerfilId = null;
 
 // 3. SISTEMA DE USUARIOS
 async function registrarUsuario() {
@@ -17,16 +19,12 @@ async function registrarUsuario() {
     const email = document.getElementById('email').value;
     const password = document.getElementById('password').value;
 
-    if(!nombre || !email || !password) {
+    if (!nombre || !email || !password) {
         alert("Rellena todos los campos para registrarte.");
         return;
     }
 
-    const { data, error } = await sb.auth.signUp({
-        email: email,
-        password: password,
-    });
-
+    const { data, error } = await sb.auth.signUp({ email, password });
     if (error) {
         alert("Error al registrar: " + error.message);
         return;
@@ -48,28 +46,28 @@ async function iniciarSesion() {
     const email = document.getElementById('email').value;
     const password = document.getElementById('password').value;
 
-    if(!email || !password) {
+    if (!email || !password) {
         alert("Por favor, rellena tu email y contraseña.");
         return;
     }
 
-    const { data, error } = await sb.auth.signInWithPassword({
-        email: email,
-        password: password,
-    });
-
+    const { data, error } = await sb.auth.signInWithPassword({ email, password });
     if (error) {
         alert("Error al entrar: " + error.message);
         return;
     }
 
+    miPerfilId = data.user.id;
     loginScreen.classList.add('hidden');
-    mainScreen.classList.remove('hidden');
-    cargarFeed();
+    bottomNav.classList.remove('hidden');
+
+    await cargarPerfiles();
+    await cambiarPestana('main');
 }
 
 function cerrarSesion() {
-    mainScreen.classList.add('hidden');
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+    bottomNav.classList.add('hidden');
     loginScreen.classList.remove('hidden');
 }
 
@@ -117,7 +115,7 @@ async function tomarFoto() {
     canvas.height = video.videoHeight;
     const contexto = canvas.getContext('2d');
     contexto.drawImage(video, 0, 0, canvas.width, canvas.height);
-    
+
     canvas.toBlob(async (blob) => {
         try {
             const { data: { user } } = await sb.auth.getUser();
@@ -143,7 +141,7 @@ async function tomarFoto() {
 
             alert("¡Día superado! Fichaje guardado correctamente 💪");
             cerrarCamara();
-            cargarFeed();
+            await cargarFeed();
 
         } catch (error) {
             alert("Error: " + error.message);
@@ -154,9 +152,26 @@ async function tomarFoto() {
     }, 'image/jpeg', 0.8);
 }
 
-// 5. LISTA DE INTEGRANTES Y CUADRÍCULAS
+// 5. NAVEGACIÓN ENTRE PESTAÑAS
+async function cambiarPestana(tab) {
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+    document.getElementById(tab + '-screen').classList.remove('hidden');
+    document.querySelectorAll('#bottom-nav button').forEach(b => {
+        b.classList.toggle('activo', b.dataset.tab === tab);
+    });
+
+    if (tab === 'main') await cargarFeed();
+    if (tab === 'days') await pintarDiaFecha();
+    if (tab === 'calendar') {
+        if (!calendarioPerfilId) calendarioPerfilId = miPerfilId;
+        pintarSelectorPersonas();
+        await pintarCalendario();
+    }
+    if (tab === 'stats') await pintarStatsMes();
+}
+
+// 6. LISTA DE INTEGRANTES
 let todosLosPerfiles = [];
-let fechaStatsActual = new Date();
 
 async function cargarPerfiles() {
     const { data, error } = await sb.from('perfiles').select('id, nombre').order('nombre');
@@ -210,12 +225,11 @@ function pintarGrid(contenedor, mapaAsistencias) {
 }
 
 async function cargarFeed() {
-    await cargarPerfiles();
     const mapaHoy = await cargarAsistenciasDeFecha(new Date());
     pintarGrid(document.getElementById('grid-hoy'), mapaHoy);
 }
 
-// 6. LIGHTBOX (ver foto en grande)
+// 7. LIGHTBOX (ver foto en grande)
 function abrirLightbox(url) {
     document.getElementById('lightbox-img').src = url;
     document.getElementById('lightbox').classList.remove('hidden');
@@ -225,60 +239,189 @@ function cerrarLightbox() {
     document.getElementById('lightbox').classList.add('hidden');
 }
 
-// 7. PANTALLA DE ESTADÍSTICAS
-async function abrirEstadisticas() {
-    mainScreen.classList.add('hidden');
-    document.getElementById('stats-screen').classList.remove('hidden');
-    fechaStatsActual = new Date();
-    await pintarStatsFecha();
-    await pintarRanking();
+// 8. PESTAÑA "DÍAS" (cuadrícula de fotos navegando por días)
+let fechaDiasActual = new Date();
+
+async function cambiarDia(delta) {
+    fechaDiasActual.setDate(fechaDiasActual.getDate() + delta);
+    await pintarDiaFecha();
 }
 
-function cerrarEstadisticas() {
-    document.getElementById('stats-screen').classList.add('hidden');
-    mainScreen.classList.remove('hidden');
-}
-
-async function cambiarDiaStats(delta) {
-    fechaStatsActual.setDate(fechaStatsActual.getDate() + delta);
-    await pintarStatsFecha();
-}
-
-async function pintarStatsFecha() {
-    const label = document.getElementById('stats-fecha-label');
+async function pintarDiaFecha() {
+    const label = document.getElementById('dias-fecha-label');
     const hoy = new Date();
-    const esHoy = fechaStatsActual.toDateString() === hoy.toDateString();
+    const esHoy = fechaDiasActual.toDateString() === hoy.toDateString();
     label.textContent = esHoy
         ? 'Hoy'
-        : fechaStatsActual.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' });
+        : fechaDiasActual.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' });
 
-    const mapa = await cargarAsistenciasDeFecha(fechaStatsActual);
-    pintarGrid(document.getElementById('grid-stats'), mapa);
+    const mapa = await cargarAsistenciasDeFecha(fechaDiasActual);
+    pintarGrid(document.getElementById('grid-dias'), mapa);
 }
 
-async function pintarRanking() {
-    const contenedor = document.getElementById('ranking-lista');
-    contenedor.innerHTML = "<p>Cargando...</p>";
+// 9. PESTAÑA "CALENDARIO" (calendario mensual por persona, verde/rojo)
+let calendarioPerfilId = null;
+let calendarioViewDate = new Date();
 
-    const { data, error } = await sb.from('asistencias').select('perfil_id');
+function pintarSelectorPersonas() {
+    const contenedor = document.getElementById('selector-personas');
+    contenedor.innerHTML = "";
+    todosLosPerfiles.forEach(p => {
+        const chip = document.createElement('button');
+        chip.className = 'chip' + (p.id === calendarioPerfilId ? ' activo' : '');
+        chip.textContent = p.nombre;
+        chip.onclick = () => seleccionarPersonaCalendario(p.id);
+        contenedor.appendChild(chip);
+    });
+}
+
+async function seleccionarPersonaCalendario(id) {
+    calendarioPerfilId = id;
+    pintarSelectorPersonas();
+    await pintarCalendario();
+}
+
+async function cambiarMesCalendario(delta) {
+    calendarioViewDate.setMonth(calendarioViewDate.getMonth() + delta);
+    await pintarCalendario();
+}
+
+async function cargarDiasDelMes(perfilId, year, month) {
+    const inicio = new Date(year, month, 1, 0, 0, 0, 0).toISOString();
+    const fin = new Date(year, month + 1, 0, 23, 59, 59, 999).toISOString();
+
+    const { data, error } = await sb
+        .from('asistencias')
+        .select('creado_en')
+        .eq('perfil_id', perfilId)
+        .gte('creado_en', inicio)
+        .lte('creado_en', fin);
+
     if (error) {
-        contenedor.innerHTML = "<p>Error al cargar el ranking.</p>";
         console.error(error);
+        return new Set();
+    }
+
+    const dias = new Set();
+    data.forEach(a => dias.add(new Date(a.creado_en).getDate()));
+    return dias;
+}
+
+async function pintarCalendario() {
+    const label = document.getElementById('calendario-mes-label');
+    label.textContent = calendarioViewDate.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+
+    const grid = document.getElementById('calendario-grid');
+    if (!calendarioPerfilId) {
+        grid.innerHTML = "<p>Elige a alguien de arriba.</p>";
         return;
+    }
+
+    const year = calendarioViewDate.getFullYear();
+    const month = calendarioViewDate.getMonth();
+    const diasConFichaje = await cargarDiasDelMes(calendarioPerfilId, year, month);
+
+    const hoy = new Date();
+    const numDias = new Date(year, month + 1, 0).getDate();
+    const primerDiaSemana = new Date(year, month, 1).getDay();
+
+    grid.innerHTML = "";
+    ['D', 'L', 'M', 'X', 'J', 'V', 'S'].forEach(d => {
+        const cab = document.createElement('div');
+        cab.className = 'dia-cabecera';
+        cab.textContent = d;
+        grid.appendChild(cab);
+    });
+    for (let i = 0; i < primerDiaSemana; i++) {
+        grid.appendChild(document.createElement('div'));
+    }
+    for (let d = 1; d <= numDias; d++) {
+        const celda = document.createElement('div');
+        const fechaCelda = new Date(year, month, d);
+        const esFuturo = fechaCelda > hoy && fechaCelda.toDateString() !== hoy.toDateString();
+
+        celda.className = 'dia-celda';
+        if (esFuturo) {
+            celda.classList.add('futuro');
+            celda.innerHTML = `<span class="num-dia">${d}</span>`;
+        } else if (diasConFichaje.has(d)) {
+            celda.classList.add('verde');
+            celda.innerHTML = `<span class="num-dia">${d}</span><span class="tic">✔</span>`;
+        } else {
+            celda.classList.add('rojo');
+            celda.innerHTML = `<span class="num-dia">${d}</span><span class="tic">✘</span>`;
+        }
+        grid.appendChild(celda);
+    }
+}
+
+// 10. PESTAÑA "ESTADÍSTICAS" (gráfico + ranking mensual)
+let statsViewDate = new Date();
+let chartInstancia = null;
+
+async function cambiarMesStats(delta) {
+    statsViewDate.setMonth(statsViewDate.getMonth() + delta);
+    await pintarStatsMes();
+}
+
+async function cargarConteoDelMes(year, month) {
+    const inicio = new Date(year, month, 1, 0, 0, 0, 0).toISOString();
+    const fin = new Date(year, month + 1, 0, 23, 59, 59, 999).toISOString();
+
+    const { data, error } = await sb
+        .from('asistencias')
+        .select('perfil_id')
+        .gte('creado_en', inicio)
+        .lte('creado_en', fin);
+
+    if (error) {
+        console.error(error);
+        return {};
     }
 
     const conteo = {};
     data.forEach(a => { conteo[a.perfil_id] = (conteo[a.perfil_id] || 0) + 1; });
+    return conteo;
+}
 
+async function pintarStatsMes() {
+    const label = document.getElementById('stats-mes-label');
+    label.textContent = statsViewDate.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+
+    const conteo = await cargarConteoDelMes(statsViewDate.getFullYear(), statsViewDate.getMonth());
     const ranking = todosLosPerfiles
         .map(p => ({ nombre: p.nombre, total: conteo[p.id] || 0 }))
         .sort((a, b) => b.total - a.total);
 
+    const contenedor = document.getElementById('ranking-lista');
     contenedor.innerHTML = "";
     ranking.forEach(r => {
         const fila = document.createElement('div');
         fila.className = 'ranking-fila';
         fila.innerHTML = `<span>${r.nombre}</span><span>${r.total} ${r.total === 1 ? 'día' : 'días'}</span>`;
         contenedor.appendChild(fila);
+    });
+
+    const ctx = document.getElementById('grafico-stats').getContext('2d');
+    if (chartInstancia) chartInstancia.destroy();
+    chartInstancia = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ranking.map(r => r.nombre),
+            datasets: [{
+                label: 'Días este mes',
+                data: ranking.map(r => r.total),
+                backgroundColor: '#4CAF50',
+                borderRadius: 6
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { ticks: { color: '#ccc' }, grid: { color: '#2a2a2a' } },
+                y: { beginAtZero: true, ticks: { color: '#ccc', stepSize: 1 }, grid: { color: '#2a2a2a' } }
+            }
+        }
     });
 }
