@@ -90,6 +90,11 @@ async function iniciarStream() {
 }
 
 async function abrirCamara() {
+    const mapaHoy = await cargarAsistenciasDeFecha(new Date());
+    if (mapaHoy[miPerfilId]) {
+        alert("Ya fichaste hoy. Solo se admite un fichaje al día.");
+        return;
+    }
     cameraModal.classList.remove('hidden');
     await iniciarStream();
 }
@@ -370,7 +375,7 @@ async function cargarConteoDelMes(year, month) {
 
     const { data, error } = await sb
         .from('asistencias')
-        .select('perfil_id')
+        .select('perfil_id, creado_en')
         .gte('creado_en', inicio)
         .lte('creado_en', fin);
 
@@ -379,8 +384,16 @@ async function cargarConteoDelMes(year, month) {
         return {};
     }
 
+    // Agrupamos por persona y contamos días distintos, no filas sueltas
+    const diasPorPerfil = {};
+    data.forEach(a => {
+        const dia = new Date(a.creado_en).toDateString();
+        if (!diasPorPerfil[a.perfil_id]) diasPorPerfil[a.perfil_id] = new Set();
+        diasPorPerfil[a.perfil_id].add(dia);
+    });
+
     const conteo = {};
-    data.forEach(a => { conteo[a.perfil_id] = (conteo[a.perfil_id] || 0) + 1; });
+    Object.keys(diasPorPerfil).forEach(id => { conteo[id] = diasPorPerfil[id].size; });
     return conteo;
 }
 

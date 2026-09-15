@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gym-squad-v4';
+const CACHE_NAME = 'gym-squad-v5';
 const APP_SHELL = [
   './',
   'index.html',
