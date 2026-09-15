@@ -24,23 +24,21 @@ async function registrarUsuario() {
         return;
     }
 
-    const { data, error } = await sb.auth.signUp({ email, password });
+    const { data, error } = await sb.auth.signUp({
+        email,
+        password,
+        options: { data: { nombre: nombre } }
+    });
+
     if (error) {
         alert("Error al registrar: " + error.message);
         return;
     }
 
-    const { error: errorPerfil } = await sb
-        .from('perfiles')
-        .insert([{ id: data.user.id, nombre: nombre }]);
-
-    if (errorPerfil) {
-        alert("Error al guardar el perfil: " + errorPerfil.message);
-        return;
-    }
-
-    alert("¡Cuenta creada! Ya puedes darle a Entrar.");
+    alert("¡Cuenta creada! Dale a Entrar. El líder del grupo tiene que aprobarte antes de que puedas usar la app.");
 }
+
+let esLider = false;
 
 async function iniciarSesion() {
     const email = document.getElementById('email').value;
@@ -57,19 +55,72 @@ async function iniciarSesion() {
         return;
     }
 
-    miPerfilId = data.user.id;
+    await entrarConSesion(data.session);
+}
+
+// Crea la fila en 'perfiles' si todavía no existe (primera vez que hay sesión de verdad)
+async function asegurarPerfil(user) {
+    const { data: existente } = await sb
+        .from('perfiles')
+        .select('id, nombre, aprobado, es_lider')
+        .eq('id', user.id)
+        .maybeSingle();
+
+    if (existente) return existente;
+
+    const nombre = (user.user_metadata && user.user_metadata.nombre) || user.email.split('@')[0];
+    const { data: nuevo, error } = await sb
+        .from('perfiles')
+        .insert([{ id: user.id, nombre: nombre }])
+        .select('id, nombre, aprobado, es_lider')
+        .single();
+
+    if (error) {
+        console.error(error);
+        return null;
+    }
+    return nuevo;
+}
+
+async function entrarConSesion(session) {
+    if (!session) return;
+    const user = session.user;
+    miPerfilId = user.id;
+
+    const perfil = await asegurarPerfil(user);
+    if (!perfil) {
+        alert("No se pudo cargar tu perfil. Inténtalo de nuevo.");
+        return;
+    }
+    esLider = !!perfil.es_lider;
+
     loginScreen.classList.add('hidden');
+
+    if (!perfil.aprobado) {
+        document.getElementById('pending-screen').classList.remove('hidden');
+        return;
+    }
+
+    document.getElementById('pending-screen').classList.add('hidden');
     bottomNav.classList.remove('hidden');
+    document.getElementById('nav-admin').classList.toggle('hidden', !esLider);
 
     await cargarPerfiles();
     await cambiarPestana('main');
 }
 
-function cerrarSesion() {
+async function cerrarSesion() {
+    await sb.auth.signOut();
     document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+    document.getElementById('pending-screen').classList.add('hidden');
     bottomNav.classList.add('hidden');
     loginScreen.classList.remove('hidden');
 }
+
+// Si ya había sesión guardada en el navegador, entra directo sin pedir login
+sb.auth.getSession().then(({ data: { session } }) => {
+    if (session) entrarConSesion(session);
+});
 
 // 4. CONTROL DE CÁMARA Y SUBIDA
 let camaraActual = 'user'; // 'user' = frontal, 'environment' = trasera
@@ -173,13 +224,18 @@ async function cambiarPestana(tab) {
         await pintarCalendario();
     }
     if (tab === 'stats') await pintarStatsMes();
+    if (tab === 'admin') await pintarPendientes();
 }
 
 // 6. LISTA DE INTEGRANTES
 let todosLosPerfiles = [];
 
 async function cargarPerfiles() {
-    const { data, error } = await sb.from('perfiles').select('id, nombre').order('nombre');
+    const { data, error } = await sb
+        .from('perfiles')
+        .select('id, nombre')
+        .eq('aprobado', true)
+        .order('nombre');
     if (!error) todosLosPerfiles = data;
 }
 
@@ -437,4 +493,49 @@ async function pintarStatsMes() {
             }
         }
     });
+}
+
+// 11. PESTAÑA "ADMIN" (solo el líder): aprobar cuentas nuevas
+async function pintarPendientes() {
+    const contenedor = document.getElementById('lista-pendientes');
+    contenedor.innerHTML = "<p>Cargando...</p>";
+
+    const { data, error } = await sb
+        .from('perfiles')
+        .select('id, nombre')
+        .eq('aprobado', false)
+        .order('nombre');
+
+    if (error) {
+        contenedor.innerHTML = "<p>Error al cargar las solicitudes.</p>";
+        console.error(error);
+        return;
+    }
+
+    if (data.length === 0) {
+        contenedor.innerHTML = "<p>No hay nadie esperando aprobación ahora mismo.</p>";
+        return;
+    }
+
+    contenedor.innerHTML = "";
+    data.forEach(p => {
+        const fila = document.createElement('div');
+        fila.className = 'ranking-fila';
+        fila.innerHTML = `<span>${p.nombre}</span>`;
+        const btn = document.createElement('button');
+        btn.textContent = "Aprobar ✅";
+        btn.className = 'btn-small btn-aprobar';
+        btn.onclick = () => aprobarPersona(p.id);
+        fila.appendChild(btn);
+        contenedor.appendChild(fila);
+    });
+}
+
+async function aprobarPersona(id) {
+    const { error } = await sb.from('perfiles').update({ aprobado: true }).eq('id', id);
+    if (error) {
+        alert("Error al aprobar: " + error.message);
+        return;
+    }
+    await pintarPendientes();
 }

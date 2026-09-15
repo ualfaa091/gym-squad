@@ -28,6 +28,12 @@
         <button onclick="registrarUsuario()" class="btn-small">Crear cuenta nueva</button>
     </div>
 
+    <div id="pending-screen" class="screen hidden">
+        <h1>⏳ Casi listo</h1>
+        <p>Tu cuenta se ha creado. Ahora tiene que aprobarte el líder del grupo para que puedas entrar.</p>
+        <button onclick="cerrarSesion()" class="btn-small">Salir</button>
+    </div>
+
     <!-- PESTAÑA: HOY -->
     <div id="main-screen" class="screen tab-content hidden">
         <header>
@@ -76,12 +82,19 @@
         <div id="ranking-lista"></div>
     </div>
 
+    <!-- PESTAÑA: ADMIN (solo el líder) -->
+    <div id="admin-screen" class="screen tab-content hidden">
+        <header><h2>Solicitudes pendientes</h2></header>
+        <div id="lista-pendientes"></div>
+    </div>
+
     <!-- BARRA DE NAVEGACIÓN INFERIOR -->
     <nav id="bottom-nav" class="hidden">
         <button data-tab="main" onclick="cambiarPestana('main')"><span class="icono">🏠</span>Hoy</button>
         <button data-tab="days" onclick="cambiarPestana('days')"><span class="icono">🗓️</span>Días</button>
         <button data-tab="calendar" onclick="cambiarPestana('calendar')"><span class="icono">📅</span>Calendario</button>
         <button data-tab="stats" onclick="cambiarPestana('stats')"><span class="icono">📊</span>Stats</button>
+        <button id="nav-admin" data-tab="admin" class="hidden" onclick="cambiarPestana('admin')"><span class="icono">👑</span>Admin</button>
     </nav>
 
     <div id="camera-modal" class="hidden">

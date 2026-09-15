@@ -329,3 +329,11 @@ header h2 { margin-bottom: 0; }
     padding: 12px;
     margin-bottom: 10px;
 }
+
+.btn-aprobar {
+    width: auto;
+    margin-bottom: 0;
+    background-color: #4CAF50;
+    padding: 6px 14px;
+    font-size: 13px;
+}
