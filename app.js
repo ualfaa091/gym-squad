@@ -636,3 +636,55 @@ async function restaurarPersona(id) {
     }
     await pintarAdmin();
 }
+
+// 12. ZONA PELIGROSA: borrar el historial completo de todo el grupo
+async function borrarTodasLasFotos() {
+    let seguir = true;
+    while (seguir) {
+        const { data: archivos, error } = await sb.storage.from('fotos-gym').list('', { limit: 100 });
+        if (error) throw error;
+        if (!archivos || archivos.length === 0) { seguir = false; break; }
+
+        const nombres = archivos.map(a => a.name);
+        const { error: errorRemove } = await sb.storage.from('fotos-gym').remove(nombres);
+        if (errorRemove) throw errorRemove;
+
+        if (archivos.length < 100) seguir = false;
+    }
+}
+
+async function borrarHistorialTotal() {
+    const paso1 = confirm(
+        "⚠️ Esto borra TODOS los fichajes y fotos de TODO el grupo (todos los meses, todas las personas). No se puede deshacer. ¿Seguro?"
+    );
+    if (!paso1) return;
+
+    const texto = prompt("Para confirmar, escribe BORRAR (en mayúsculas):");
+    if (texto !== "BORRAR") {
+        alert("Cancelado, no se ha borrado nada.");
+        return;
+    }
+
+    const btn = document.getElementById('btn-borrar-historial');
+    btn.disabled = true;
+    btn.textContent = "Borrando...";
+
+    try {
+        await borrarTodasLasFotos();
+
+        const { error: errorDelete } = await sb
+            .from('asistencias')
+            .delete()
+            .gte('creado_en', '1900-01-01');
+        if (errorDelete) throw errorDelete;
+
+        alert("Historial borrado. Todo el grupo empieza de cero.");
+        await cambiarPestana('main');
+    } catch (error) {
+        alert("Error al borrar: " + error.message);
+        console.error(error);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = "🗑️ Borrar historial de todos";
+    }
+}
