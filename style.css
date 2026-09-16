@@ -337,3 +337,11 @@ header h2 { margin-bottom: 0; }
     padding: 6px 14px;
     font-size: 13px;
 }
+
+.btn-eliminar {
+    width: auto;
+    margin-bottom: 0;
+    background-color: #7a2e2e;
+    padding: 6px 14px;
+    font-size: 13px;
+}

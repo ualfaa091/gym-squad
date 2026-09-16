@@ -224,7 +224,7 @@ async function cambiarPestana(tab) {
         await pintarCalendario();
     }
     if (tab === 'stats') await pintarStatsMes();
-    if (tab === 'admin') await pintarPendientes();
+    if (tab === 'admin') await pintarAdmin();
 }
 
 // 6. LISTA DE INTEGRANTES
@@ -235,6 +235,7 @@ async function cargarPerfiles() {
         .from('perfiles')
         .select('id, nombre')
         .eq('aprobado', true)
+        .eq('activo', true)
         .order('nombre');
     if (!error) todosLosPerfiles = data;
 }
@@ -495,7 +496,13 @@ async function pintarStatsMes() {
     });
 }
 
-// 11. PESTAÑA "ADMIN" (solo el líder): aprobar cuentas nuevas
+// 11. PESTAÑA "ADMIN" (solo el líder): aprobar, ver miembros, eliminar/restaurar
+async function pintarAdmin() {
+    await pintarPendientes();
+    await pintarMiembros();
+    await pintarEliminados();
+}
+
 async function pintarPendientes() {
     const contenedor = document.getElementById('lista-pendientes');
     contenedor.innerHTML = "<p>Cargando...</p>";
@@ -537,5 +544,95 @@ async function aprobarPersona(id) {
         alert("Error al aprobar: " + error.message);
         return;
     }
-    await pintarPendientes();
+    await pintarAdmin();
+}
+
+async function pintarMiembros() {
+    const contenedor = document.getElementById('lista-miembros');
+    contenedor.innerHTML = "<p>Cargando...</p>";
+
+    const { data, error } = await sb
+        .from('perfiles')
+        .select('id, nombre')
+        .eq('aprobado', true)
+        .eq('activo', true)
+        .order('nombre');
+
+    if (error) {
+        contenedor.innerHTML = "<p>Error al cargar los miembros.</p>";
+        console.error(error);
+        return;
+    }
+
+    contenedor.innerHTML = "";
+    data.forEach(p => {
+        const fila = document.createElement('div');
+        fila.className = 'ranking-fila';
+        fila.innerHTML = `<span>${p.nombre}</span>`;
+        const btn = document.createElement('button');
+        btn.textContent = "Eliminar 🗑️";
+        btn.className = 'btn-small btn-eliminar';
+        btn.onclick = () => eliminarPersona(p.id, p.nombre);
+        fila.appendChild(btn);
+        contenedor.appendChild(fila);
+    });
+}
+
+async function eliminarPersona(id, nombre) {
+    const confirmado = confirm(
+        `¿Sacar a ${nombre} del grupo? Sus fichajes anteriores no se borran, solo dejará de aparecer a partir de ahora. Puedes restaurarlo cuando quieras.`
+    );
+    if (!confirmado) return;
+
+    const { error } = await sb.from('perfiles').update({ activo: false }).eq('id', id);
+    if (error) {
+        alert("Error al eliminar: " + error.message);
+        return;
+    }
+    await pintarAdmin();
+}
+
+async function pintarEliminados() {
+    const contenedor = document.getElementById('lista-eliminados');
+    contenedor.innerHTML = "<p>Cargando...</p>";
+
+    const { data, error } = await sb
+        .from('perfiles')
+        .select('id, nombre')
+        .eq('aprobado', true)
+        .eq('activo', false)
+        .order('nombre');
+
+    if (error) {
+        contenedor.innerHTML = "<p>Error al cargar.</p>";
+        console.error(error);
+        return;
+    }
+
+    if (data.length === 0) {
+        contenedor.innerHTML = "<p>Nadie eliminado por ahora.</p>";
+        return;
+    }
+
+    contenedor.innerHTML = "";
+    data.forEach(p => {
+        const fila = document.createElement('div');
+        fila.className = 'ranking-fila';
+        fila.innerHTML = `<span>${p.nombre}</span>`;
+        const btn = document.createElement('button');
+        btn.textContent = "Restaurar ↩️";
+        btn.className = 'btn-small btn-aprobar';
+        btn.onclick = () => restaurarPersona(p.id);
+        fila.appendChild(btn);
+        contenedor.appendChild(fila);
+    });
+}
+
+async function restaurarPersona(id) {
+    const { error } = await sb.from('perfiles').update({ activo: true }).eq('id', id);
+    if (error) {
+        alert("Error al restaurar: " + error.message);
+        return;
+    }
+    await pintarAdmin();
 }
